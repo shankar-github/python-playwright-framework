@@ -22,7 +22,7 @@ graphql-core==3.2.3
 
 # Database Testing
 SQLAlchemy==2.0.23
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.12
 pymysql==1.1.0
 pymongo==4.6.1
 
