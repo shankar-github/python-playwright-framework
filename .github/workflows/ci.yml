@@ -61,7 +61,7 @@ jobs:
           allure-version: 2.24.1
       - run: allure generate reports/allure-results -o allure-report --clean || true
         if: always()
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: allure-report-api-${{ matrix.python-version }}
@@ -94,7 +94,7 @@ jobs:
           allure-version: 2.24.1
       - run: allure generate reports/allure-results -o allure-report --clean || true
         if: always()
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: allure-report-web-${{ matrix.browser }}
