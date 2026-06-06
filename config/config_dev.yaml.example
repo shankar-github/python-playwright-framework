@@ -1,0 +1,33 @@
+# Copy to config/config_{env}.yaml
+# Values below map to environment variables when not already set in .env
+
+api:
+  base_url: "https://api-dev.example.com/v1"
+  graphql_endpoint: "https://api-dev.example.com/graphql"
+  timeout: 30
+
+web:
+  base_url: "https://web-dev.example.com"
+  browser: "chromium"
+  headless: false
+
+database:
+  type: "postgresql"
+  host: "localhost"
+  port: 5432
+  name: "dev_db"
+  user: "dev_user"
+  password: ""
+
+logging:
+  level: "DEBUG"
+  file: "logs/automation.log"
+
+mobile:
+  appium_server_url: "http://localhost:4723"
+  android:
+    platform_version: "13.0"
+    device_name: "emulator-5554"
+  ios:
+    platform_version: "16.0"
+    device_name: "iPhone 14"

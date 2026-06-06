@@ -1,0 +1,255 @@
+name: Test Automation CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * *'
+
+env:
+  ENV: test
+  API_BASE_URL: http://localhost:8080/v1
+  GRAPHQL_ENDPOINT: http://localhost:8080/graphql
+  WEB_URL: http://localhost:3000
+  GRAPHQL_FETCH_SCHEMA: "false"
+
+jobs:
+  lint:
+    name: Code Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install flake8 black isort pip-audit
+      - name: Security scan
+        run: pip-audit -r requirements.txt || true
+      - name: Run linters
+        run: |
+          flake8 framework tests
+          black --check framework tests
+          isort --check-only framework tests
+      - name: Run framework unit tests
+        run: pytest tests/core tests/utils tests/reporting tests/api/test_validators.py tests/api/test_rest_client.py -q
+
+  api-tests:
+    name: API Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -r requirements.txt
+      - name: Start mock API
+        run: |
+          python tests/mocks/mock_api_server.py &
+          python scripts/wait_for_mocks.py http://localhost:8080/health
+      - run: pytest -m api -n auto --reruns 2 --cov=framework --cov-report=xml --alluredir=reports/allure-results
+      - uses: allure-framework/setup-allure@v1
+        if: always()
+        with:
+          allure-version: 2.24.1
+      - run: allure generate reports/allure-results -o allure-report --clean || true
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-report-api-${{ matrix.python-version }}
+          path: allure-report
+
+  web-tests:
+    name: Web UI Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          pip install -r requirements.txt
+          playwright install --with-deps ${{ matrix.browser }}
+      - name: Start mock web
+        run: |
+          python tests/mocks/mock_web_server.py &
+          python scripts/wait_for_mocks.py http://localhost:3000/health
+      - run: pytest -m web -n auto --reruns 2 --cov=framework --cov-report=xml --alluredir=reports/allure-results
+        env:
+          BROWSER: ${{ matrix.browser }}
+      - uses: allure-framework/setup-allure@v1
+        if: always()
+        with:
+          allure-version: 2.24.1
+      - run: allure generate reports/allure-results -o allure-report --clean || true
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-report-web-${{ matrix.browser }}
+          path: allure-report
+
+  db-tests:
+    name: Database Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Initialize database schema
+        env:
+          PGPASSWORD: test_password
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          psql -h localhost -U test_user -d test_db -f scripts/db/init.sql
+      - run: pytest -m db -n auto --reruns 2 --alluredir=reports/allure-results
+        env:
+          SKIP_MOCK_SERVERS: "true"
+          DB_TYPE: postgresql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: test_db
+          DB_USER: test_user
+          DB_PASSWORD: test_password
+
+  smoke-tests:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+      - name: Start mock servers
+        run: |
+          python tests/mocks/mock_api_server.py &
+          python tests/mocks/mock_web_server.py &
+          python scripts/wait_for_mocks.py
+      - run: pytest -m "smoke and not smoke_db and not smoke_e2e and not smoke_mobile" -n auto --reruns 2 --alluredir=reports/allure-results
+
+  smoke-db-tests:
+    name: Smoke DB Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Initialize database schema
+        env:
+          PGPASSWORD: test_password
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          psql -h localhost -U test_user -d test_db -f scripts/db/init.sql
+      - name: Start mock API
+        run: |
+          python tests/mocks/mock_api_server.py &
+          python scripts/wait_for_mocks.py http://localhost:8080/health
+        env:
+          DB_PASSWORD: test_password
+          MOCK_DB_SYNC: "true"
+      - run: pytest -m smoke_db -n auto --reruns 2 --alluredir=reports/allure-results
+        env:
+          DB_TYPE: postgresql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: test_db
+          DB_USER: test_user
+          DB_PASSWORD: test_password
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+      - name: Initialize database schema
+        env:
+          PGPASSWORD: test_password
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          psql -h localhost -U test_user -d test_db -f scripts/db/init.sql
+      - name: Start mock servers
+        run: |
+          python tests/mocks/mock_api_server.py &
+          python tests/mocks/mock_web_server.py &
+          python scripts/wait_for_mocks.py
+        env:
+          DB_PASSWORD: test_password
+          MOCK_DB_SYNC: "true"
+      - run: pytest -m "integration or smoke_e2e" -n auto --reruns 2 --alluredir=reports/allure-results
+        env:
+          DB_TYPE: postgresql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: test_db
+          DB_USER: test_user
+          DB_PASSWORD: test_password
+
+  mobile-tests:
+    name: Mobile Tests
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: pytest -m mobile --collect-only -q
+        env:
+          SKIP_APPIUM: "true"

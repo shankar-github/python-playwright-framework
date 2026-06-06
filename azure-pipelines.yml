@@ -1,0 +1,48 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  ENV: test
+  API_BASE_URL: http://localhost:8080/v1
+  GRAPHQL_ENDPOINT: http://localhost:8080/graphql
+  WEB_URL: http://localhost:3000
+
+stages:
+  - stage: Test
+    jobs:
+      - job: LintAndUnit
+        steps:
+          - checkout: self
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.11'
+          - script: |
+              pip install -r requirements.txt
+              pip install flake8 black isort pip-audit
+              flake8 framework tests
+              black --check framework tests
+              isort --check-only framework tests
+              pytest tests/core tests/utils tests/reporting -q
+            displayName: Lint and unit tests
+
+      - job: Smoke
+        dependsOn: LintAndUnit
+        steps:
+          - checkout: self
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.11'
+          - script: |
+              pip install -r requirements.txt
+              playwright install --with-deps chromium
+              python tests/mocks/mock_api_server.py &
+              python tests/mocks/mock_web_server.py &
+              python scripts/wait_for_mocks.py
+              pytest -m "smoke and not smoke_db and not smoke_e2e and not smoke_mobile" -n auto --reruns 2
+            displayName: Smoke tests

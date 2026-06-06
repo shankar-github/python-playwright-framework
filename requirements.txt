@@ -1,0 +1,46 @@
+# Test Framework
+pytest==7.4.3
+pytest-xdist==3.5.0
+pytest-timeout==2.2.0
+pytest-rerunfailures==12.0
+pytest-cov==4.1.0
+
+# Web UI Automation
+playwright==1.40.0
+
+# Mobile Automation
+Appium-Python-Client==3.1.0
+
+# API Testing
+requests==2.31.0
+requests-toolbelt==1.0.0
+gql==3.5.0
+jsonschema==4.20.0
+
+# GraphQL
+graphql-core==3.2.3
+
+# Database Testing
+SQLAlchemy==2.0.23
+psycopg2-binary==2.9.9
+pymysql==1.1.0
+pymongo==4.6.1
+
+# Logging
+loguru==0.7.2
+
+# Reporting
+allure-pytest==2.13.2
+
+# Configuration & Data
+PyYAML==6.0.1
+python-dotenv==1.0.0
+Faker==20.1.0
+
+# Utilities
+pydantic==2.5.2
+pydantic-settings==2.1.0
+tenacity==8.2.3
+
+# Type hints
+typing-extensions==4.8.0

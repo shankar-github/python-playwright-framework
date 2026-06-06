@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  mock-api:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: python tests/mocks/mock_api_server.py
+    ports:
+      - "8080:8080"
+    networks:
+      - test-network
+
+  mock-web:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: python tests/mocks/mock_web_server.py
+    ports:
+      - "3000:3000"
+    networks:
+      - test-network
+
+  test-runner:
+    build: .
+    volumes:
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+    environment:
+      ENV: test
+      DB_TYPE: postgresql
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_NAME: test_db
+      DB_USER: test_user
+      DB_PASSWORD: test_password
+      API_BASE_URL: http://mock-api:8080/v1
+      GRAPHQL_ENDPOINT: http://mock-api:8080/graphql
+      WEB_URL: http://mock-web:3000
+      GRAPHQL_FETCH_SCHEMA: "false"
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      mock-api:
+        condition: service_started
+      mock-web:
+        condition: service_started
+
+  postgres-test:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: test_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    ports:
+      - "5432:5432"
+    networks:
+      - test-network
+    volumes:
+      - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  test-network:
+    driver: bridge

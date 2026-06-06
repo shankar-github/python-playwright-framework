@@ -1,0 +1,26 @@
+# Test Data for Users
+# Copy this file to users.yaml and update with your test data
+
+test_users:
+  valid_user:
+    email: "test@example.com"
+    first_name: "Test"
+    last_name: "User"
+    password: "TestPassword123"
+  
+  admin_user:
+    email: "admin@example.com"
+    first_name: "Admin"
+    last_name: "User"
+    password: "AdminPassword123"
+    role: "admin"
+
+invalid_users:
+  missing_email:
+    first_name: "Test"
+    last_name: "User"
+  
+  invalid_email:
+    email: "invalid-email"
+    first_name: "Test"
+    last_name: "User"

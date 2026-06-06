@@ -1,0 +1,134 @@
+stages:
+  - lint
+  - test
+  - report
+
+variables:
+  ENV: test
+  API_BASE_URL: http://localhost:8080/v1
+  GRAPHQL_ENDPOINT: http://localhost:8080/graphql
+  WEB_URL: http://localhost:3000
+  GRAPHQL_FETCH_SCHEMA: "false"
+
+before_script:
+  - python -m venv venv
+  - source venv/bin/activate
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+  - playwright install --with-deps
+
+lint:
+  stage: lint
+  script:
+    - pip install flake8 black isort pip-audit
+    - flake8 framework tests
+    - black --check framework tests
+    - isort --check-only framework tests
+    - pytest tests/core tests/utils tests/reporting -q
+  only:
+    - merge_requests
+    - main
+
+api-tests:
+  stage: test
+  script:
+    - python tests/mocks/mock_api_server.py &
+    - python scripts/wait_for_mocks.py
+    - pytest -m api -n auto --reruns 2 --alluredir=reports/allure-results
+  artifacts:
+    when: always
+    paths:
+      - reports/allure-results
+  only:
+    - main
+    - develop
+    - merge_requests
+
+web-tests:
+  stage: test
+  script:
+    - python tests/mocks/mock_web_server.py &
+    - python scripts/wait_for_mocks.py
+    - pytest -m web -n auto --reruns 2 --alluredir=reports/allure-results
+  artifacts:
+    when: always
+    paths:
+      - reports/allure-results
+  only:
+    - main
+    - develop
+    - merge_requests
+
+db-tests:
+  stage: test
+  services:
+    - postgres:15
+  variables:
+    POSTGRES_DB: test_db
+    POSTGRES_USER: test_user
+    POSTGRES_PASSWORD: test_password
+    DB_TYPE: postgresql
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_NAME: test_db
+    DB_USER: test_user
+    DB_PASSWORD: test_password
+  before_script:
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - apt-get update && apt-get install -y postgresql-client
+    - PGPASSWORD=$DB_PASSWORD psql -h postgres -U $DB_USER -d $DB_NAME -f scripts/db/init.sql
+  script:
+    - pytest -m db -n auto --reruns 2 --alluredir=reports/allure-results
+  only:
+    - main
+    - develop
+    - merge_requests
+
+smoke-tests:
+  stage: test
+  script:
+    - python tests/mocks/mock_api_server.py &
+    - python tests/mocks/mock_web_server.py &
+    - python scripts/wait_for_mocks.py
+    - pytest -m "smoke and not smoke_db and not smoke_e2e and not smoke_mobile" -n auto --reruns 2 --alluredir=reports/allure-results
+  only:
+    - main
+    - develop
+
+integration-tests:
+  stage: test
+  services:
+    - postgres:15
+  variables:
+    DB_PASSWORD: test_password
+    DB_HOST: postgres
+    DB_NAME: test_db
+    DB_USER: test_user
+  before_script:
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - playwright install --with-deps
+    - apt-get update && apt-get install -y postgresql-client
+    - PGPASSWORD=$DB_PASSWORD psql -h postgres -U $DB_USER -d $DB_NAME -f scripts/db/init.sql
+  script:
+    - python tests/mocks/mock_api_server.py &
+    - python tests/mocks/mock_web_server.py &
+    - python scripts/wait_for_mocks.py
+    - pytest -m "integration or smoke_e2e" -n auto --reruns 2 --alluredir=reports/allure-results
+  only:
+    - main
+    - develop
+
+mobile-tests:
+  stage: test
+  allow_failure: true
+  script:
+    - pytest -m mobile --collect-only -q
+  only:
+    - main
+    - develop

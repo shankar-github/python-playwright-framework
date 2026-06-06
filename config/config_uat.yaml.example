@@ -1,0 +1,28 @@
+# Copy to config/config_uat.yaml
+api:
+  base_url: "https://api-uat.example.com/v1"
+  graphql_endpoint: "https://api-uat.example.com/graphql"
+  timeout: 30
+  graphql_fetch_schema: false
+
+web:
+  base_url: "https://web-uat.example.com"
+  browser: "chromium"
+  headless: true
+  record_trace: true
+  record_video: false
+
+database:
+  type: "postgresql"
+  host: "uat-db.example.com"
+  port: 5432
+  name: "uat_db"
+  user: "uat_user"
+  password: ""
+
+logging:
+  level: "INFO"
+  file: "logs/automation-uat.log"
+
+mobile:
+  appium_server_url: "http://localhost:4723"

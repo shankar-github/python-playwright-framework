@@ -1,0 +1,41 @@
+# Copy to config/config_test.yaml for CI and local mock-based testing
+# Values map to environment variables when not already set in .env
+
+api:
+  base_url: "http://localhost:8080/v1"
+  graphql_endpoint: "http://localhost:8080/graphql"
+  timeout: 30
+  graphql_fetch_schema: false
+
+web:
+  base_url: "http://localhost:3000"
+  browser: "chromium"
+  headless: true
+  record_trace: true
+  record_video: false
+
+database:
+  type: "postgresql"
+  host: "localhost"
+  port: 5432
+  name: "test_db"
+  user: "test_user"
+  password: "test_password"
+
+logging:
+  level: "INFO"
+  file: "logs/automation.log"
+
+mobile:
+  appium_server_url: "http://localhost:4723"
+  android:
+    platform_version: "13.0"
+    device_name: "emulator-5554"
+  ios:
+    platform_version: "16.0"
+    device_name: "iPhone 14"
+
+execution:
+  parallel_workers: "auto"
+  retry_count: 2
+  retry_delay: 1

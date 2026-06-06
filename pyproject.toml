@@ -1,0 +1,25 @@
+[project]
+name = "automation-framework"
+version = "1.0.0"
+description = "Unified Python test automation framework"
+requires-python = ">=3.8"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["framework"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
