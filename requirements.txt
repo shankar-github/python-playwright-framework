@@ -6,7 +6,7 @@ pytest-rerunfailures==12.0
 pytest-cov==4.1.0
 
 # Web UI Automation
-playwright==1.40.0
+playwright==1.60.0
 
 # Mobile Automation
 Appium-Python-Client==3.1.0
